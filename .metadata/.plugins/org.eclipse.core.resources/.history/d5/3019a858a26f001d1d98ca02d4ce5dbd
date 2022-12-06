@@ -1,0 +1,115 @@
+package com.cgi.main.controller;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.cgi.main.exception.ProductNotFoundException;
+import com.cgi.main.model.AuthRequest;
+import com.cgi.main.model.Product;
+import com.cgi.main.repository.ProductRepository;
+import com.cgi.main.service.ProductService;
+import com.cgi.main.util.JwtUtil;
+
+@CrossOrigin(value = "http://localhost:4200")
+@RestController
+@RequestMapping("/api/")
+public class ProductController {
+
+	@Autowired
+	private ProductService productService;
+	@Autowired
+	private ProductRepository productRepository;
+	@Autowired
+	private JwtUtil jwtUtil;
+	@Autowired
+	private AuthenticationManager authenticationManager;
+
+	@GetMapping(path = "msg")
+	public String message() {
+		return "WELCOME TO DASHBOARD";
+	}
+
+	@PostMapping("authenticate")
+	public String generateToken(@RequestBody AuthRequest authRequest) throws Exception {
+		try {
+			System.out.println("username:"+authRequest.getUsername());
+			System.out.println("password:"+authRequest.getPassword());
+			authenticationManager.authenticate(
+					new UsernamePasswordAuthenticationToken(authRequest.getUsername(), authRequest.getPassword()));
+		} catch (Exception ex) {
+			throw new Exception("inavalid username/password");
+		}
+		return jwtUtil.generateToken(authRequest.getUsername());
+	}
+
+	@PostMapping(path = "save", consumes = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<String> saveProduct(@RequestBody Product product) {
+		Product p = this.productService.saveProduct(product);
+		if (p != null) {
+			return new ResponseEntity<String>("SUCCESS STORED IN DB", HttpStatus.OK);
+		} else {
+			return new ResponseEntity<String>("NOT-FOUND", HttpStatus.CONFLICT);
+		}
+	}
+
+	@PutMapping(path = "{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<?> updateProduct(@PathVariable("id") int id, @RequestBody Product product) {
+		/*
+		 * Product p=this.productService.updateProduct(product); if(p!=null) { return
+		 * new ResponseEntity<String>("SUCCESSFULLY UPDATED",HttpStatus.OK); }else {
+		 * return new ResponseEntity<String>("NOT-FOUND",HttpStatus.CONFLICT); }
+		 */
+		Product pr = this.productRepository.findById(id)
+				.orElseThrow(() -> new ProductNotFoundException("PRODUCT NOT FOUND:" + id));
+		pr.setName(product.getName());
+		pr.setPrice(product.getPrice());
+		Product up = this.productService.saveProduct(pr);
+		return ResponseEntity.ok(up);
+	}
+
+	@GetMapping(path = "products", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<List<Product>> getProduct() {
+		List<Product> list = this.productService.getAllProducts();
+		return new ResponseEntity<List<Product>>(list, HttpStatus.OK);
+	}
+
+	@GetMapping(path = "{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<?> getProductById(@PathVariable("id") int id) {
+		Product op = this.productService.getProductById(id);
+		return ResponseEntity.ok(op);
+		/*
+		 * Product op=this.productService.getProductById(id); if(op!=null) { return new
+		 * ResponseEntity<Product>(op,HttpStatus.OK); }else { return new
+		 * ResponseEntity<String>("PRODUCT-NOT-FOUND",HttpStatus.NOT_FOUND); }
+		 */
+	}
+
+	@DeleteMapping(path = "{id}")
+	public ResponseEntity<?> deleteProductById(@PathVariable("id") int id) {
+		Product pr = this.productRepository.findById(id)
+				.orElseThrow(() -> new ProductNotFoundException("PRODUCT NOT FOUND" + id));
+		this.productRepository.delete(pr);
+		Map<String, Boolean> map = new LinkedHashMap<String, Boolean>();
+		map.put("DELETE", Boolean.TRUE);
+		return ResponseEntity.ok(map);
+
+	}
+
+}

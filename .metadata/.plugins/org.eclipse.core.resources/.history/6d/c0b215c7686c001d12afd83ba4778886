@@ -1,0 +1,20 @@
+package com.cgi.main.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cgi.main.model.User;
+import com.cgi.main.repository.UserRepository;
+
+@Service
+public class UserService {
+
+	@Autowired
+	private UserRepository userRepository;
+	
+	
+	public User findByUserName(String username) {
+		return this.userRepository.findByUsername(username);
+		
+	}
+}
